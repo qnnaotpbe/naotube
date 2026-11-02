@@ -1,0 +1,8 @@
+{
+  "name": "OrangeTube",
+  "description": "A sleek, dark-mode YouTube-styled video sharing platform with orange accents, YouTube Data API v3 and IFrame Player API integration, timestamp notes, and AI summaries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
