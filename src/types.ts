@@ -59,8 +59,11 @@ export interface FollowedChannel {
   title: string;
   handle?: string;
   avatar: string;
+  banner?: string;
   subscriberCount?: string;
   videoCount?: string;
+  totalViews?: string;
+  joinedDate?: string;
   description?: string;
   followedAt?: string;
 }
@@ -77,7 +80,7 @@ export type ActiveView =
   | 'home' 
   | 'watch' 
   | 'search' 
-  | 'channels'
+  | 'channel'
   | 'subscriptions' 
   | 'history' 
   | 'liked' 

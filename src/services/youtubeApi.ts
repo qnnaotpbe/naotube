@@ -76,21 +76,19 @@ export async function testApiKey(keyToTest: string): Promise<{ success: boolean;
 }
 
 /**
- * Fetch popular / normal YouTube feed across categories just like standard YouTube!
+ * Fetch popular / normal YouTube feed across categories
  */
 export async function fetchPopularFeed(category: string = 'Tất cả'): Promise<VideoItem[]> {
   const apiKey = getActiveApiKey();
   if (!apiKey) return [];
 
   try {
-    // If "Tất cả" or "Thịnh hành", fetch top trending videos
     if (category === 'Tất cả' || category === 'Thịnh hành' || category === 'All') {
       const url = `${BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=VN&maxResults=24&key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(url);
       const data = await res.json();
 
       if (!res.ok || !data.items || data.items.length === 0) {
-        // Fallback to US if VN region is empty or has issues
         const fallbackUrl = `${BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=US&maxResults=24&key=${encodeURIComponent(apiKey)}`;
         const fallbackRes = await fetch(fallbackUrl);
         const fallbackData = await fallbackRes.json();
@@ -103,7 +101,6 @@ export async function fetchPopularFeed(category: string = 'Tất cả'): Promise
       return mapVideoItems(data.items, category);
     }
 
-    // Category mapping to natural search queries
     const categoryQueryMap: Record<string, string> = {
       'Âm nhạc': 'official music video bài hát hay nhất',
       'Gaming': 'gaming highlight gameplay playthrough',
@@ -124,7 +121,7 @@ export async function fetchPopularFeed(category: string = 'Tất cả'): Promise
 }
 
 /**
- * Search YouTube channels by name or handle
+ * Search YouTube channels by name, handle, or keyword
  */
 export async function searchChannels(query: string): Promise<FollowedChannel[]> {
   const apiKey = getActiveApiKey();
@@ -132,7 +129,7 @@ export async function searchChannels(query: string): Promise<FollowedChannel[]> 
 
   try {
     const res = await fetch(
-      `${BASE_URL}/search?part=snippet&type=channel&q=${encodeURIComponent(query.trim())}&maxResults=8&key=${encodeURIComponent(apiKey)}`
+      `${BASE_URL}/search?part=snippet&type=channel&q=${encodeURIComponent(query.trim())}&maxResults=6&key=${encodeURIComponent(apiKey)}`
     );
     const data = await res.json();
     if (!res.ok || !data.items) return [];
@@ -141,7 +138,7 @@ export async function searchChannels(query: string): Promise<FollowedChannel[]> 
     if (channelIds.length === 0) return [];
 
     const statsRes = await fetch(
-      `${BASE_URL}/channels?part=snippet,statistics&id=${channelIds.join(',')}&key=${encodeURIComponent(apiKey)}`
+      `${BASE_URL}/channels?part=snippet,brandingSettings,statistics&id=${channelIds.join(',')}&key=${encodeURIComponent(apiKey)}`
     );
     const statsData = await statsRes.json();
 
@@ -160,8 +157,11 @@ export async function searchChannels(query: string): Promise<FollowedChannel[]> 
       title: it.snippet.title,
       handle: it.snippet.customUrl || '',
       avatar: it.snippet.thumbnails?.high?.url || it.snippet.thumbnails?.default?.url || '',
+      banner: it.brandingSettings?.image?.bannerExternalUrl || '',
       subscriberCount: formatSubscriberCount(it.statistics?.subscriberCount || '0'),
       videoCount: it.statistics?.videoCount ? `${parseInt(it.statistics.videoCount, 10).toLocaleString()} videos` : '',
+      totalViews: it.statistics?.viewCount ? `${parseInt(it.statistics.viewCount, 10).toLocaleString()} views` : '',
+      joinedDate: it.snippet.publishedAt || '',
       description: it.snippet.description || '',
     }));
   } catch (err) {
@@ -171,16 +171,18 @@ export async function searchChannels(query: string): Promise<FollowedChannel[]> 
 }
 
 /**
- * Fetch channel details by channel ID
+ * Fetch complete channel details by channel ID
  */
 export async function fetchChannelDetails(channelId: string): Promise<FollowedChannel | null> {
-  if (channelCache[channelId]) return channelCache[channelId];
+  if (channelCache[channelId] && channelCache[channelId].banner !== undefined) {
+    return channelCache[channelId];
+  }
 
   const apiKey = getActiveApiKey();
   if (!apiKey) return null;
 
   try {
-    const url = `${BASE_URL}/channels?part=snippet,statistics&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`;
+    const url = `${BASE_URL}/channels?part=snippet,brandingSettings,statistics&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url);
     const data = await res.json();
 
@@ -189,10 +191,13 @@ export async function fetchChannelDetails(channelId: string): Promise<FollowedCh
       const channel: FollowedChannel = {
         id: it.id,
         title: it.snippet.title,
-        handle: it.snippet.customUrl || '',
+        handle: it.snippet.customUrl || `@${it.snippet.title.toLowerCase().replace(/\s+/g, '')}`,
         avatar: it.snippet.thumbnails?.high?.url || it.snippet.thumbnails?.default?.url || '',
+        banner: it.brandingSettings?.image?.bannerExternalUrl || '',
         subscriberCount: formatSubscriberCount(it.statistics?.subscriberCount || '0'),
-        videoCount: it.statistics?.videoCount ? `${parseInt(it.statistics.videoCount, 10).toLocaleString()} videos` : '',
+        videoCount: it.statistics?.videoCount ? `${parseInt(it.statistics.videoCount, 10).toLocaleString()} video` : '',
+        totalViews: it.statistics?.viewCount ? `${parseInt(it.statistics.viewCount, 10).toLocaleString()} lượt xem` : '',
+        joinedDate: it.snippet.publishedAt ? new Date(it.snippet.publishedAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
         description: it.snippet.description || '',
       };
       channelCache[channelId] = channel;
@@ -205,14 +210,18 @@ export async function fetchChannelDetails(channelId: string): Promise<FollowedCh
 }
 
 /**
- * Fetch videos from a specific channel
+ * Fetch videos from a specific channel with sorting
  */
-export async function fetchChannelVideos(channelId: string, maxResults = 8): Promise<VideoItem[]> {
+export async function fetchChannelVideos(
+  channelId: string,
+  order: 'date' | 'viewCount' = 'date',
+  maxResults = 24
+): Promise<VideoItem[]> {
   const apiKey = getActiveApiKey();
   if (!apiKey) return [];
 
   try {
-    const searchUrl = `${BASE_URL}/search?part=snippet&channelId=${encodeURIComponent(channelId)}&order=date&type=video&maxResults=${maxResults}&key=${encodeURIComponent(apiKey)}`;
+    const searchUrl = `${BASE_URL}/search?part=snippet&channelId=${encodeURIComponent(channelId)}&order=${order}&type=video&maxResults=${maxResults}&key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(searchUrl);
     const data = await res.json();
 
@@ -227,11 +236,22 @@ export async function fetchChannelVideos(channelId: string, maxResults = 8): Pro
 
     if (!detailsRes.ok || !detailsData.items) return [];
 
-    return mapVideoItems(detailsData.items, 'Kênh Theo Dõi');
+    return mapVideoItems(detailsData.items, 'Kênh');
   } catch (err) {
     console.warn(`Error fetching videos for channel ${channelId}:`, err);
     return [];
   }
+}
+
+/**
+ * Search both channels and videos simultaneously (YouTube style)
+ */
+export async function searchEverything(query: string): Promise<{ channels: FollowedChannel[]; videos: VideoItem[] }> {
+  const [channels, videos] = await Promise.all([
+    searchChannels(query),
+    searchVideos(query, 24),
+  ]);
+  return { channels, videos };
 }
 
 /**
@@ -246,7 +266,7 @@ export async function fetchFollowedFeed(followedChannels: FollowedChannel[]): Pr
   try {
     const channelsToFetch = followedChannels.slice(0, 10);
     const promises = channelsToFetch.map((ch) =>
-      fetchChannelVideos(ch.id, 4).then((vids) =>
+      fetchChannelVideos(ch.id, 'date', 4).then((vids) =>
         vids.map((v) => ({ ...v, channelAvatar: ch.avatar || v.channelAvatar }))
       )
     );
@@ -454,10 +474,10 @@ function formatSubscriberCount(count: string | number): string {
   const num = typeof count === 'string' ? parseInt(count, 10) : count;
   if (isNaN(num) || num === 0) return '100K';
   if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(2).replace(/\.00$/, '') + 'M';
+    return (num / 1_000_000).toFixed(2).replace(/\.00$/, '') + ' Tr';
   }
   if (num >= 1_000) {
-    return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return (num / 1_000).toFixed(1).replace(/\.0$/, '') + ' N';
   }
   return `${num}`;
 }

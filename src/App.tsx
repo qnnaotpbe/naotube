@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { CategoryChips } from './components/CategoryChips';
 import { VideoGrid } from './components/VideoGrid';
 import { WatchPage } from './components/WatchPage';
+import { ChannelPage } from './components/ChannelPage';
 import { SearchResults } from './components/SearchResults';
 import { SettingsModal } from './components/SettingsModal';
 import { CustomVideoModal } from './components/CustomVideoModal';
@@ -20,7 +21,7 @@ import { INITIAL_ACCENT_COLORS } from './services/mockData';
 import {
   fetchPopularFeed,
   fetchFollowedFeed,
-  searchVideos,
+  searchEverything,
   getApiStatus,
   ApiStatus,
 } from './services/youtubeApi';
@@ -30,21 +31,19 @@ import {
   Bookmark,
   ThumbsUp,
   Plus,
-  Trash2,
-  Sparkles,
-  Flame,
 } from 'lucide-react';
 
 export default function App() {
   // Navigation & View state
   const [activeView, setActiveView] = useState<ActiveView>('home');
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [miniPlayerVideo, setMiniPlayerVideo] = useState<VideoItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean>(true);
 
-  // Authentication State (Pre-configured for qnnaot / 123123)
+  // Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     try {
       const stored = localStorage.getItem('naotube_auth_user');
@@ -52,7 +51,6 @@ export default function App() {
         return JSON.parse(stored);
       }
     } catch {}
-    // Default pre-authenticated session for qnnaot
     return {
       username: 'qnnaot',
       displayName: 'qnnaot',
@@ -62,7 +60,6 @@ export default function App() {
     };
   });
 
-  // Vercel private deployment guard lock
   const [isVercelLockActive, setIsVercelLockActive] = useState<boolean>(() => {
     return localStorage.getItem('naotube_vercel_lock') === 'true';
   });
@@ -84,6 +81,7 @@ export default function App() {
   const [feedVideos, setFeedVideos] = useState<VideoItem[]>([]);
   const [followedVideos, setFollowedVideos] = useState<VideoItem[]>([]);
   const [searchResults, setSearchResults] = useState<VideoItem[]>([]);
+  const [searchChannelsList, setSearchChannelsList] = useState<FollowedChannel[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(true);
   const [isSearching, setIsSearching] = useState<boolean>(false);
 
@@ -139,7 +137,7 @@ export default function App() {
     }
   }, []);
 
-  // Fetch standard YouTube feed across categories (mọi video, giống youtube bình thường)
+  // Fetch standard YouTube feed across categories
   const loadFeed = useCallback(async (cat: string = selectedCategory) => {
     setIsLoadingFeed(true);
     try {
@@ -157,7 +155,7 @@ export default function App() {
     loadFeed(selectedCategory);
   }, [selectedCategory, loadFeed]);
 
-  // Load followed channels feed when user visits subscriptions
+  // Load followed channels feed
   const loadFollowedVideos = useCallback(async () => {
     if (followedChannels.length === 0) {
       setFollowedVideos([]);
@@ -204,7 +202,7 @@ export default function App() {
     localStorage.removeItem('naotube_auth_user');
   };
 
-  // Handle Search
+  // Handle Search (Searches both Channels and Videos)
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     setActiveView('search');
@@ -212,14 +210,23 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
-      const results = await searchVideos(query, 24);
-      setSearchResults(results);
+      const { channels, videos } = await searchEverything(query);
+      setSearchChannelsList(channels);
+      setSearchResults(videos);
     } catch (err) {
       console.warn('Search error:', err);
       setSearchResults([]);
+      setSearchChannelsList([]);
     } finally {
       setIsSearching(false);
     }
+  };
+
+  // Navigate to Channel Page
+  const handleSelectChannel = (channelId: string) => {
+    setSelectedChannelId(channelId);
+    setActiveView('channel');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Video Selection (Watch Page)
@@ -288,6 +295,22 @@ export default function App() {
 
   // Determine what view to render
   const getDisplayContent = () => {
+    // Channel Page View
+    if (activeView === 'channel' && selectedChannelId) {
+      return (
+        <ChannelPage
+          channelId={selectedChannelId}
+          onSelectVideo={handleSelectVideo}
+          onToggleBookmark={handleToggleBookmark}
+          bookmarkedIds={bookmarkedSet}
+          followedChannels={followedChannels}
+          onToggleFollowChannel={handleToggleFollowChannel}
+          onBack={() => setActiveView('home')}
+        />
+      );
+    }
+
+    // Video Watch Page View
     if (activeView === 'watch' && selectedVideo) {
       return (
         <WatchPage
@@ -299,19 +322,25 @@ export default function App() {
           followedChannels={followedChannels}
           onToggleFollowChannel={handleToggleFollowChannel}
           onLaunchMiniPlayer={handleLaunchMiniPlayer}
+          onSelectChannel={handleSelectChannel}
         />
       );
     }
 
+    // Search Results View
     if (activeView === 'search') {
       return (
         <SearchResults
           query={searchQuery}
           videos={searchResults}
+          channels={searchChannelsList}
           isLoading={isSearching}
           onSelectVideo={handleSelectVideo}
+          onSelectChannel={handleSelectChannel}
           onToggleBookmark={handleToggleBookmark}
           bookmarkedIds={bookmarkedSet}
+          followedChannels={followedChannels}
+          onToggleFollowChannel={handleToggleFollowChannel}
         />
       );
     }
@@ -361,6 +390,7 @@ export default function App() {
               videos={followedVideos}
               isLoading={false}
               onSelectVideo={handleSelectVideo}
+              onSelectChannel={handleSelectChannel}
               onToggleBookmark={handleToggleBookmark}
               bookmarkedIds={bookmarkedSet}
               emptyMessage="Đang tải hoặc các kênh chưa có video mới."
@@ -396,6 +426,7 @@ export default function App() {
             videos={historyVideos}
             isLoading={false}
             onSelectVideo={handleSelectVideo}
+            onSelectChannel={handleSelectChannel}
             onToggleBookmark={handleToggleBookmark}
             bookmarkedIds={bookmarkedSet}
             emptyMessage="Lịch sử xem của bạn đang trống. Hãy chọn video để bắt đầu thưởng thức."
@@ -421,6 +452,7 @@ export default function App() {
             videos={likedVideos.length > 0 ? likedVideos : feedVideos.slice(0, 4)}
             isLoading={false}
             onSelectVideo={handleSelectVideo}
+            onSelectChannel={handleSelectChannel}
             onToggleBookmark={handleToggleBookmark}
             bookmarkedIds={bookmarkedSet}
             emptyMessage="Bạn chưa nhấn thích video nào. Bấm nút Like trên video để lưu vào đây."
@@ -445,6 +477,7 @@ export default function App() {
             videos={bookmarkedVideos}
             isLoading={false}
             onSelectVideo={handleSelectVideo}
+            onSelectChannel={handleSelectChannel}
             onToggleBookmark={handleToggleBookmark}
             bookmarkedIds={bookmarkedSet}
             emptyMessage="Thư viện đang trống. Nhấn biểu tượng lưu trên bất kỳ video nào để xem lại sau."
@@ -453,7 +486,7 @@ export default function App() {
       );
     }
 
-    // Default: Normal YouTube Recommendations Feed (Mọi video như YouTube bình thường)
+    // Default: Normal YouTube Recommendations Feed
     return (
       <div className="flex flex-col flex-1 min-w-0">
         <CategoryChips
@@ -468,6 +501,7 @@ export default function App() {
           videos={feedVideos}
           isLoading={isLoadingFeed}
           onSelectVideo={handleSelectVideo}
+          onSelectChannel={handleSelectChannel}
           onToggleBookmark={handleToggleBookmark}
           bookmarkedIds={bookmarkedSet}
           emptyMessage="Đang tải các video đề xuất từ YouTube..."
@@ -517,6 +551,7 @@ export default function App() {
             historyCount={historyVideos.length}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenAddChannelModal={() => setIsAddChannelOpen(true)}
+            onSelectChannel={handleSelectChannel}
           />
         ) : (
           <div className="hidden 2xl:block">
@@ -533,6 +568,7 @@ export default function App() {
               historyCount={historyVideos.length}
               onOpenSettings={() => setIsSettingsOpen(true)}
               onOpenAddChannelModal={() => setIsAddChannelOpen(true)}
+              onSelectChannel={handleSelectChannel}
             />
           </div>
         )}
@@ -561,6 +597,7 @@ export default function App() {
         onClose={() => setIsAddChannelOpen(false)}
         followedChannels={followedChannels}
         onToggleFollow={handleToggleFollowChannel}
+        onSelectChannel={handleSelectChannel}
       />
 
       {/* Login Modal (supports qnnaot / 123123) */}

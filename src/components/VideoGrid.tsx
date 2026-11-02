@@ -12,6 +12,7 @@ interface VideoGridProps {
   videos: VideoItem[];
   isLoading: boolean;
   onSelectVideo: (video: VideoItem) => void;
+  onSelectChannel?: (channelId: string) => void;
   onToggleBookmark: (video: VideoItem) => void;
   bookmarkedIds: Set<string>;
   emptyMessage?: string;
@@ -22,9 +23,10 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   videos,
   isLoading,
   onSelectVideo,
+  onSelectChannel,
   onToggleBookmark,
   bookmarkedIds,
-  emptyMessage = 'No videos found in this category.',
+  emptyMessage = 'Không tìm thấy video nào.',
   onResetFilter,
 }) => {
   if (isLoading) {
@@ -55,14 +57,14 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
         </div>
         <h3 className="text-lg font-semibold text-white mb-2">{emptyMessage}</h3>
         <p className="text-sm text-[#AAAAAA] max-w-md mb-6">
-          Try selecting another category, searching for different keywords, or loading any custom YouTube video.
+          Thử chọn danh mục khác hoặc tìm kiếm với từ khóa mới.
         </p>
         {onResetFilter && (
           <button
             onClick={onResetFilter}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-accent text-white hover-bg-accent transition-colors"
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-accent text-white hover-bg-accent transition-colors cursor-pointer"
           >
-            Show All Videos
+            Về Trang Chủ
           </button>
         )}
       </div>
@@ -76,6 +78,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           key={video.id}
           video={video}
           onSelectVideo={onSelectVideo}
+          onSelectChannel={onSelectChannel}
           onToggleBookmark={onToggleBookmark}
           isBookmarked={bookmarkedIds.has(video.id)}
         />

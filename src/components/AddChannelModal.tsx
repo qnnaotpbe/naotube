@@ -13,6 +13,7 @@ interface AddChannelModalProps {
   onClose: () => void;
   followedChannels: FollowedChannel[];
   onToggleFollow: (channel: FollowedChannel) => void;
+  onSelectChannel?: (channelId: string) => void;
 }
 
 // Popular suggested channels for quick initial following
@@ -64,6 +65,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({
   onClose,
   followedChannels,
   onToggleFollow,
+  onSelectChannel,
 }) => {
   const [searchInput, setSearchInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -168,36 +170,47 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({
                   key={ch.id}
                   className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#1F1F1F] hover:bg-[#252525] border border-[#2B2B2B] transition-colors"
                 >
-                  <img
-                    src={ch.avatar}
-                    alt={ch.title}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-                        ch.title
-                      )}`;
+                  <div
+                    onClick={() => {
+                      if (onSelectChannel) {
+                        onSelectChannel(ch.id);
+                        onClose();
+                      }
                     }}
-                    className="h-11 w-11 rounded-full object-cover shrink-0 ring-1 ring-white/10"
-                  />
+                    className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+                    title={`Xem kênh ${ch.title}`}
+                  >
+                    <img
+                      src={ch.avatar}
+                      alt={ch.title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+                          ch.title
+                        )}`;
+                      }}
+                      className="h-11 w-11 rounded-full object-cover shrink-0 ring-1 ring-white/10 group-hover:scale-105 transition-transform"
+                    />
 
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-bold text-xs sm:text-sm text-white truncate">
-                      {ch.title}
-                    </span>
-                    <div className="flex items-center gap-2 text-[11px] text-[#AAAAAA]">
-                      {ch.handle && <span>{ch.handle}</span>}
-                      {ch.subscriberCount && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="tabular-nums">{ch.subscriberCount} subs</span>
-                        </>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-accent transition-colors">
+                        {ch.title}
+                      </span>
+                      <div className="flex items-center gap-2 text-[11px] text-[#AAAAAA]">
+                        {ch.handle && <span>{ch.handle}</span>}
+                        {ch.subscriberCount && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="tabular-nums">{ch.subscriberCount} subs</span>
+                          </>
+                        )}
+                      </div>
+                      {ch.description && (
+                        <p className="text-[11px] text-[#777777] line-clamp-1 mt-0.5">
+                          {ch.description}
+                        </p>
                       )}
                     </div>
-                    {ch.description && (
-                      <p className="text-[11px] text-[#777777] line-clamp-1 mt-0.5">
-                        {ch.description}
-                      </p>
-                    )}
                   </div>
 
                   <button

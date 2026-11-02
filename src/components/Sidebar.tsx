@@ -27,7 +27,7 @@ interface SidebarProps {
   historyCount: number;
   onOpenSettings: () => void;
   onOpenAddChannelModal: () => void;
-  onSelectChannelFilter?: (channelId: string) => void;
+  onSelectChannel?: (channelId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -40,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   historyCount,
   onOpenSettings,
   onOpenAddChannelModal,
+  onSelectChannel,
 }) => {
   const mainNavItems = [
     { id: 'home' as ActiveView, label: 'Trang chủ', icon: Home },
@@ -227,8 +228,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {followedChannels.map((ch) => (
                 <button
                   key={ch.id}
-                  onClick={() => onNavigate('subscriptions')}
-                  className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-sm text-[#CCCCCC] hover:bg-[#1C1C1C] hover:text-white transition-colors text-left"
+                  onClick={() => onSelectChannel ? onSelectChannel(ch.id) : onNavigate('subscriptions')}
+                  className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-sm text-[#CCCCCC] hover:bg-[#1C1C1C] hover:text-white transition-colors text-left cursor-pointer"
                 >
                   <img
                     src={ch.avatar}

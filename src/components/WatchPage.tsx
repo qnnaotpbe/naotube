@@ -43,6 +43,7 @@ interface WatchPageProps {
   followedChannels: FollowedChannel[];
   onToggleFollowChannel: (channel: FollowedChannel) => void;
   onLaunchMiniPlayer?: (video: VideoItem) => void;
+  onSelectChannel?: (channelId: string) => void;
 }
 
 export const WatchPage: React.FC<WatchPageProps> = ({
@@ -53,6 +54,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   followedChannels,
   onToggleFollowChannel,
   onLaunchMiniPlayer,
+  onSelectChannel,
 }) => {
   // Player state
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -414,19 +416,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             
             {/* Channel Info & Subscribe / Follow Button */}
             <div className="flex items-center gap-3">
-              <img
-                src={video.channelAvatar}
-                alt={video.channelTitle}
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-                    video.channelTitle
-                  )}`;
-                }}
-                className="h-11 w-11 rounded-full object-cover ring-2 ring-white/10"
-              />
-              <div>
-                <div className="flex items-center gap-1.5 font-semibold text-white">
+              <div
+                onClick={() => onSelectChannel && onSelectChannel(video.channelId)}
+                className="cursor-pointer hover:scale-105 transition-transform"
+                title={`Xem kênh ${video.channelTitle}`}
+              >
+                <img
+                  src={video.channelAvatar}
+                  alt={video.channelTitle}
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
+                      video.channelTitle
+                    )}`;
+                  }}
+                  className="h-11 w-11 rounded-full object-cover ring-2 ring-white/10"
+                />
+              </div>
+              <div
+                onClick={() => onSelectChannel && onSelectChannel(video.channelId)}
+                className="cursor-pointer"
+                title={`Xem kênh ${video.channelTitle}`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-white hover:text-accent hover:underline transition-colors">
                   <span>{video.channelTitle}</span>
                   <CheckCircle2 className="h-4 w-4 text-[#888888]" />
                 </div>
